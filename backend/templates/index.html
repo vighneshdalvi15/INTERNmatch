@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InternMatch | AI Career Hub</title>
+    <link rel="icon" type="image/png" href="/static/internmatch-logo.png">
+    <!--
+      InternMatch SPA shell (single-page UI).
+
+      All "pages" are view containers toggled by JS (see `backend/static/app.js`).
+      The UI calls Flask JSON APIs under `/api/*` for real data (MongoDB-backed).
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
+        body {
+            font-family: 'Outfit', sans-serif;
+            background:
+                radial-gradient(1100px 480px at -8% -10%, rgba(148, 163, 184, 0.18), transparent 62%),
+                radial-gradient(1000px 520px at 110% 0%, rgba(226, 232, 240, 0.55), transparent 60%),
+                radial-gradient(900px 460px at 70% 102%, rgba(241, 245, 249, 0.75), transparent 62%),
+                linear-gradient(135deg, #f4f1ea 0%, #eef2f3 55%, #f6f7fb 100%);
+        }
+        h1, h2, h3, .brand-title, .font-extrabold { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.015em; }
+        .view-content { display: none; opacity: 0; transition: opacity 0.25s ease; }
+        .view-content.active { display: block; opacity: 1; }
+        .nav-btn.active { background-color: #eff6ff; color: #2563eb; }
+        .dropdown-menu { display: none; }
+        .dropdown-menu.show { display: block; }
+        .ai-pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.08); opacity: 0.75; } 100% { transform: scale(1); opacity: 1; } }
+        .skill-btn.selected { background-color: #2563eb; color: white; border-color: #2563eb; }
+        .glass-card { background: rgba(255,255,255,0.16); border: 1px solid rgba(255,255,255,0.28); backdrop-filter: blur(12px); }
+        .hero-glow { box-shadow: 0 24px 90px rgba(14, 165, 233, 0.22); }
+        .stat-card {
+            background: linear-gradient(150deg, rgba(255,255,255,0.82) 0%, rgba(240, 253, 250, 0.8) 45%, rgba(239, 246, 255, 0.82) 100%);
+            border: 1px solid rgba(125, 211, 252, 0.35);
+            backdrop-filter: blur(10px);
+        }
+        .soft-glass {
+            background: rgba(255, 255, 255, 0.62) !important;
+            border: 1px solid rgba(148, 163, 184, 0.18) !important;
+            backdrop-filter: blur(12px);
+        }
+        .brand-mark { filter: drop-shadow(0 10px 18px rgba(2, 132, 199, 0.14)); }
+        .brand-word { letter-spacing: -0.02em; }
+
+        /* Common modal close button theming */
+        .modal-close { background: #f8fafc; }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-gray-800">
+
+    <aside class="hidden md:flex w-64 soft-glass border-r border-gray-100 flex-col items-start py-8 px-5 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10 relative">
+        <div class="flex items-center gap-3 mb-10 pl-2 cursor-pointer select-none" onclick="showView('landing')">
+            <img src="/static/internmatch-logo.png" alt="InternMatch" class="w-11 h-11 rounded-2xl object-contain bg-white/60 p-1 brand-mark">
+            <span class="text-xl font-bold tracking-tight text-slate-900 brand-title brand-word">Intern<span class="text-blue-600">Match</span></span>
+        </div>
+
+        <nav class="flex flex-col gap-2 w-full text-slate-500 font-semibold" id="sidebar-nav">
+            <button onclick="showView('landing', this)" class="nav-btn active w-full text-left px-4 py-3 rounded-xl transition flex items-center gap-3 hover:bg-slate-50 hover:text-blue-600">
+                <i class="fa-solid fa-house-chimney w-5"></i> Home
+            </button>
+            <button onclick="showView('ai-match', this)" class="nav-btn w-full text-left px-4 py-3 rounded-xl transition hover:bg-slate-50 hover:text-blue-600 flex items-center gap-3">
+                <i class="fa-solid fa-wand-magic-sparkles w-5"></i> AI Match
+            </button>
+            <button onclick="showView('internship', this)" class="nav-btn w-full text-left px-4 py-3 rounded-xl transition hover:bg-slate-50 hover:text-blue-600 flex items-center gap-3">
+                <i class="fa-solid fa-briefcase w-5"></i> Jobs
+            </button>
+            <button onclick="showView('courses', this)" class="nav-btn w-full text-left px-4 py-3 rounded-xl transition hover:bg-slate-50 hover:text-blue-600 flex items-center gap-3">
+                <i class="fa-solid fa-book-open w-5"></i> Courses
+            </button>
+            <button onclick="showView('mock-tests', this)" class="nav-btn w-full text-left px-4 py-3 rounded-xl transition hover:bg-slate-50 hover:text-blue-600 flex items-center gap-3">
+                <i class="fa-solid fa-file-lines w-5"></i> Mock Tests
+            </button>
+
+            <div class="pt-4 mt-2 border-t border-slate-100 hidden" id="company-nav">
+                <p class="text-[10px] uppercase tracking-wider text-slate-400 font-bold px-4 mb-2">Company</p>
+                <button onclick="showView('company-profile', this)" class="nav-btn w-full text-left px-4 py-3 rounded-xl transition hover:bg-slate-50 hover:text-blue-600 flex items-center gap-3">
+                    <i class="fa-solid fa-building w-5"></i> Company Profile
+                </button>
+                <button onclick="showView('post-job', this)" class="nav-btn w-full text-left px-4 py-3 rounded-xl transition hover:bg-slate-50 hover:text-blue-600 flex items-center gap-3">
+                    <i class="fa-solid fa-square-plus w-5"></i> Post a Job
+                </button>
+                <button onclick="showView('company-apps', this)" class="nav-btn w-full text-left px-4 py-3 rounded-xl transition hover:bg-slate-50 hover:text-blue-600 flex items-center gap-3">
+                    <i class="fa-solid fa-inbox w-5"></i> Applications
+                </button>
+            </div>
+        </nav>
+
+        <div id="ai-status-box" class="mt-auto w-full p-4 bg-blue-50/50 rounded-2xl border border-blue-100 hidden">
+            <p class="text-[10px] uppercase tracking-wider text-blue-500 font-bold mb-1">AI Engine</p>
+            <p class="text-xs text-slate-600 font-medium">Matching Active</p>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col overflow-y-auto relative">
+        <header class="bg-white/55 backdrop-blur-md px-4 md:px-8 py-4 flex justify-between items-center sticky top-0 z-40 border-b border-slate-100">
+            <button class="md:hidden w-11 h-11 rounded-xl border border-slate-200 bg-white flex items-center justify-center" onclick="toggleMobileNav()">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+
+            <div class="w-full max-w-sm hidden md:block">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-4 top-3 text-slate-400"></i>
+                    <input id="global-search" type="text" placeholder="Search jobs by title or skill..." class="w-full pl-11 pr-4 py-2 rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-400 bg-slate-50/50 text-sm">
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2 justify-end w-56 relative">
+                <button onclick="openAuthModal('login')" id="loginBtn" class="bg-gradient-to-r from-slate-900 to-blue-700 text-white px-5 py-2 rounded-xl font-bold hover:opacity-95 transition text-sm">Login</button>
+                <button onclick="openAuthModal('signup')" id="signupBtn" class="hidden md:inline-flex bg-white/70 border border-slate-200 text-slate-900 px-5 py-2 rounded-xl font-bold hover:border-blue-300 hover:text-blue-700 transition text-sm">Sign up</button>
+
+                <div id="userProfileArea" class="hidden relative">
+                    <button onclick="toggleDropdown()" id="userAvatarBtn" class="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-bold">U</button>
+                    <div id="profileDropdown" class="dropdown-menu absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 z-50">
+                        <button onclick="showDropdownView('profile')" class="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"><i class="fa-regular fa-user mr-2"></i> Student Profile</button>
+                        <button onclick="showDropdownView('dashboard')" class="w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-gauge-high mr-2"></i> Dashboard</button>
+                        <button onclick="showDropdownView('company-profile')" id="companyProfileDrop" class="hidden w-full text-left px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"><i class="fa-solid fa-building mr-2"></i> Company Profile</button>
+                        <hr class="my-2 border-slate-50">
+                        <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-500 font-bold hover:bg-red-50"><i class="fa-solid fa-power-off mr-2"></i> Logout</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div id="mobile-nav" class="md:hidden hidden border-b border-slate-100 bg-white">
+            <div class="p-3 grid grid-cols-2 gap-2 text-sm font-semibold text-slate-600">
+                <button class="px-4 py-3 rounded-xl border border-slate-200" onclick="showView('landing'); toggleMobileNav(false)">Home</button>
+                <button class="px-4 py-3 rounded-xl border border-slate-200" onclick="showView('internship'); toggleMobileNav(false)">Jobs</button>
+                <button class="px-4 py-3 rounded-xl border border-slate-200" onclick="showView('ai-match'); toggleMobileNav(false)">AI Match</button>
+                <button class="px-4 py-3 rounded-xl border border-slate-200" onclick="showView('courses'); toggleMobileNav(false)">Courses</button>
+                <button class="px-4 py-3 rounded-xl border border-slate-200" onclick="showView('mock-tests'); toggleMobileNav(false)">Mock Tests</button>
+            </div>
+        </div>
+
+        <div id="toast" class="fixed bottom-6 right-6 z-[70] hidden max-w-md">
+            <div class="bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl text-sm flex items-start gap-3">
+                <i class="fa-solid fa-circle-info mt-0.5 text-blue-300"></i>
+                <div class="flex-1">
+                    <p id="toast-title" class="font-bold"></p>
+                    <p id="toast-msg" class="text-white/80"></p>
+                </div>
+                <button class="text-white/60 hover:text-white" onclick="hideToast()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+
+        <div id="landing-view" class="view-content active p-6 md:p-10 max-w-6xl mx-auto w-full space-y-8">
+            <section class="relative overflow-hidden rounded-[2.25rem] hero-glow bg-gradient-to-r from-cyan-100/85 via-emerald-100/80 to-amber-100/75 text-slate-900 p-8 md:p-12 border border-cyan-100/70">
+                <div class="absolute -top-12 -left-12 w-48 h-48 bg-cyan-300/35 rounded-full blur-3xl"></div>
+                <div class="absolute -bottom-20 -right-12 w-60 h-60 bg-amber-300/30 rounded-full blur-3xl"></div>
+                <div class="relative grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+                    <div>
+                        <p class="text-xs uppercase tracking-[0.2em] text-cyan-700 font-bold mb-3">InternMatch Career OS</p>
+                        <h1 class="text-4xl md:text-6xl font-extrabold leading-tight mb-4 text-slate-900">Secure Your Future with Smart Career Protection</h1>
+                        <p class="text-slate-700/90 text-base md:text-lg max-w-xl">Accessible, data-driven internship discovery and skill growth for students who want faster, better outcomes.</p>
+                        <div class="mt-7 flex flex-wrap gap-3">
+                            <button onclick="showView('internship')" class="bg-gradient-to-r from-emerald-400 to-cyan-500 text-white px-6 py-3 rounded-2xl font-bold hover:opacity-95 transition shadow-lg shadow-cyan-200/60">Explore Programs</button>
+                            <button onclick="showView('ai-match')" class="glass-card text-slate-800 px-6 py-3 rounded-2xl font-bold hover:bg-white/30 transition">Run AI Match</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="glass-card rounded-2xl p-4">
+                            <p class="text-xs text-cyan-800">Matching Accuracy</p>
+                            <p class="text-2xl font-extrabold mt-1 text-slate-900">92%</p>
+                        </div>
+                        <div class="glass-card rounded-2xl p-4">
+                            <p class="text-xs text-cyan-800">Active Tracks</p>
+                            <p class="text-2xl font-extrabold mt-1 text-slate-900">5+</p>
+                        </div>
+                        <div class="glass-card rounded-2xl p-4 col-span-2">
+                            <p class="text-xs text-cyan-800">Quick Start</p>
+                            <p class="font-bold mt-1 text-slate-900">Complete your profile and unlock personalized recommendations instantly.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div onclick="showView('internship')" class="stat-card rounded-3xl p-5 text-center cursor-pointer hover:shadow-lg transition-all">
+                    <div class="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl"><i class="fa-solid fa-briefcase"></i></div>
+                    <h3 class="font-bold text-slate-800">Jobs</h3>
+                </div>
+                <div onclick="showView('courses')" class="stat-card rounded-3xl p-5 text-center cursor-pointer hover:shadow-lg transition-all">
+                    <div class="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl"><i class="fa-solid fa-book-open"></i></div>
+                    <h3 class="font-bold text-slate-800">Courses</h3>
+                </div>
+                <div onclick="showView('mock-tests')" class="stat-card rounded-3xl p-5 text-center cursor-pointer hover:shadow-lg transition-all">
+                    <div class="w-14 h-14 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl"><i class="fa-solid fa-file-lines"></i></div>
+                    <h3 class="font-bold text-slate-800">Mock Tests</h3>
+                </div>
+                <div onclick="showView('ai-match')" class="stat-card rounded-3xl p-5 text-center cursor-pointer hover:shadow-lg transition-all">
+                    <div class="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                    <h3 class="font-bold text-slate-800">AI Match</h3>
+                </div>
+                <div onclick="openAuthModal('signup')" class="stat-card rounded-3xl p-5 text-center cursor-pointer hover:shadow-lg transition-all">
+                    <div class="w-14 h-14 bg-slate-900 text-white rounded-2xl flex items-center justify-center mx-auto mb-3 text-2xl"><i class="fa-solid fa-user-plus"></i></div>
+                    <h3 class="font-bold text-slate-800">Join</h3>
+                </div>
+            </div>
+        </div>
+
+        <div id="internship-view" class="view-content p-6 md:p-10 max-w-6xl mx-auto w-full">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <h2 class="text-3xl font-extrabold">Job Board</h2>
+                <div class="flex gap-3">
+                    <input id="job-search" type="text" placeholder="Filter by title/skill..." class="w-full md:w-80 px-4 py-3 rounded-2xl border border-slate-200 bg-white outline-none focus:border-blue-500">
+                    <button class="px-5 py-3 rounded-2xl bg-slate-900 text-white font-bold" onclick="loadJobs()">Refresh</button>
+                </div>
+            </div>
+            <div id="jobs-list" class="space-y-4"></div>
+        </div>
+
+        <div id="ai-match-view" class="view-content p-6 md:p-10 max-w-6xl mx-auto w-full">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-6">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-slate-800 to-slate-600 text-white rounded-2xl flex items-center justify-center ai-pulse shadow-md">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-3xl font-extrabold">AI Match Studio</h2>
+                        <p class="text-slate-600 text-sm">A calmer UI + smarter recommendations based on your profile.</p>
+                    </div>
+                </div>
+                <div class="flex gap-3 flex-wrap">
+                    <button onclick="showView('profile')" class="bg-white/60 border border-slate-200 text-slate-900 px-6 py-3 rounded-2xl font-bold hover:border-slate-300 transition backdrop-blur-md">Update Profile</button>
+                    <button onclick="loadRecommended()" class="bg-gradient-to-r from-slate-800 to-slate-600 text-white px-7 py-3 rounded-2xl font-bold hover:opacity-95 transition shadow-lg shadow-slate-200/70">Find Best Opportunities</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <div class="lg:col-span-2 bg-white/60 border border-slate-200 p-7 rounded-[2rem] shadow-sm backdrop-blur-md">
+                    <h3 class="text-xl font-extrabold text-slate-900">How it works</h3>
+                    <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="stat-card rounded-2xl p-5">
+                            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Step 1</p>
+                            <p class="font-extrabold mt-2 text-slate-900">Add skills</p>
+                            <p class="text-sm text-slate-600 mt-1">Update skills in Profile.</p>
+                        </div>
+                        <div class="stat-card rounded-2xl p-5">
+                            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Step 2</p>
+                            <p class="font-extrabold mt-2 text-slate-900">Run match</p>
+                            <p class="text-sm text-slate-600 mt-1">We score jobs by fit.</p>
+                        </div>
+                        <div class="stat-card rounded-2xl p-5">
+                            <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Step 3</p>
+                            <p class="font-extrabold mt-2 text-slate-900">Improve</p>
+                            <p class="text-sm text-slate-600 mt-1">Courses for missing skills.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white/60 border border-slate-200 p-7 rounded-[2rem] shadow-sm backdrop-blur-md">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Profile snapshot</p>
+                    <h3 class="text-xl font-extrabold text-slate-900 mt-2">Your skills</h3>
+                    <div id="ai-snapshot-skills" class="mt-4 flex flex-wrap gap-2"></div>
+                    <div class="mt-6 p-4 rounded-2xl bg-white/60 border border-slate-200">
+                        <p class="text-sm text-slate-700"><span class="font-extrabold">Tip:</span> Add 6–10 skills for stronger matches.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ai-match-results" class="hidden space-y-8">
+                <div>
+                    <h3 class="text-xl font-bold mb-4 text-slate-900">Top Matches</h3>
+                    <div id="internship-results" class="space-y-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="courses-view" class="view-content p-6 md:p-10 max-w-6xl mx-auto w-full">
+            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-3xl font-extrabold">Courses</h2>
+                    <p class="text-slate-500 text-sm mt-1">YouTube courses curated for your internship journey.</p>
+                </div>
+                <button class="bg-slate-900 text-white px-6 py-3 rounded-2xl font-bold" onclick="loadCourses()">Refresh</button>
+            </div>
+            <div id="courses-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch"></div>
+        </div>
+
+        <div id="mock-tests-view" class="view-content p-6 md:p-10 max-w-6xl mx-auto w-full">
+            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-3xl font-extrabold">Mock Tests</h2>
+                    <p class="text-slate-500 text-sm mt-1">15 questions • 3 marks each • Moderate difficulty</p>
+                </div>
+                <button class="bg-slate-900 text-white px-6 py-3 rounded-2xl font-bold" onclick="loadTests()">Refresh</button>
+            </div>
+
+            <div id="tests-list" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+
+            <div id="test-runner" class="hidden mt-8">
+                <div class="bg-white border border-slate-100 rounded-[2rem] p-7 shadow-sm">
+                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                        <div>
+                            <h3 class="text-xl font-extrabold text-slate-900" id="test-title">Test</h3>
+                            <p class="text-sm text-slate-500">Answer all questions, then submit.</p>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="px-4 py-2 rounded-2xl bg-slate-50 border border-slate-200 text-sm font-bold" id="test-timer">Timer: --:--</div>
+                            <button class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold" onclick="submitTest()">Submit</button>
+                            <button class="bg-slate-200 text-slate-700 px-6 py-3 rounded-2xl font-bold" onclick="exitTest()">Exit</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="test-questions" class="space-y-4 mt-6"></div>
+
+                <div id="test-result" class="hidden mt-6 bg-emerald-50 border border-emerald-200 rounded-[2rem] p-7">
+                    <h4 class="text-xl font-extrabold text-emerald-900">Result</h4>
+                    <p class="text-emerald-900 mt-2" id="test-result-text"></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="profile-view" class="view-content p-6 md:p-10 max-w-6xl mx-auto w-full">
+            <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-8">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-slate-900">Student Profile</h2>
+                    <p class="text-slate-500 text-sm mt-1">This profile powers AI matching and applications.</p>
+                </div>
+                <div class="flex gap-3">
+                    <button id="profileEditBtn" onclick="toggleProfileEdit()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100">Edit</button>
+                    <button id="profileReloadBtn" onclick="loadStudentProfile()" class="bg-white border border-slate-200 text-slate-900 px-6 py-2 rounded-xl font-bold hover:border-blue-300 hover:text-blue-700 transition">Reload</button>
+                </div>
+            </div>
+
+            <div class="space-y-6">
+                <section class="bg-white/70 border border-slate-100 p-8 rounded-[2rem] shadow-sm backdrop-blur-md">
+                    <h3 class="text-lg font-bold text-blue-600 mb-6 flex items-center gap-2"><i class="fa-solid fa-user-gear"></i> Basic Details</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Full Name</label>
+                            <input type="text" id="prof-name" placeholder="Enter your full name" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Phone</label>
+                            <input type="text" id="prof-phone" placeholder="Enter your phone number" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bg-white/70 border border-slate-100 p-8 rounded-[2rem] shadow-sm backdrop-blur-md">
+                    <h3 class="text-lg font-bold text-blue-600 mb-6 flex items-center gap-2"><i class="fa-solid fa-graduation-cap"></i> Academic Details</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">College/University</label>
+                            <input type="text" id="prof-uni" list="mumbai-colleges" placeholder="Full name of your institution" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Degree & Major</label>
+                            <input type="text" id="prof-major" placeholder="e.g. B.Tech Computer Science" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Education Status</label>
+                            <select id="prof-edu-status" disabled onchange="toggleEduDetails()" class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 appearance-none">
+                                <option value="">Select Status</option>
+                                <option value="pursuing">Pursuing</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                        <div id="pursuing-fields" class="hidden md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Current Year</label>
+                                <select id="prof-year" disabled class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                                    <option value="1">1st Year</option>
+                                    <option value="2">2nd Year</option>
+                                    <option value="3">3rd Year</option>
+                                    <option value="4">4th Year</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Current Semester</label>
+                                <input type="number" id="prof-sem" placeholder="e.g. 5" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                            </div>
+                        </div>
+                        <div id="completed-fields" class="hidden md:col-span-2">
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Year of Completion</label>
+                            <input type="number" id="prof-grad-year" placeholder="e.g. 2024" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        </div>
+                    </div>
+                </section>
+
+                <section class="bg-white/70 border border-slate-100 p-8 rounded-[2rem] shadow-sm backdrop-blur-md">
+                    <h3 class="text-lg font-bold text-blue-600 mb-6 flex items-center gap-2"><i class="fa-solid fa-screwdriver-wrench"></i> Skills & Tools</h3>
+                    <div class="prof-input w-full bg-slate-50 px-4 py-4 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-100" id="skills-widget">
+                        <div class="flex flex-wrap gap-2" id="skills-chips"></div>
+                        <div class="mt-3 flex flex-col md:flex-row gap-3">
+                            <input id="skills-search" type="text" placeholder="Search & add skills (e.g. React, SQL, Git)..." readonly class="w-full bg-white/70 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                            <button id="skills-add-btn" class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold" onclick="openSkillsPicker()" disabled>Browse skills</button>
+                        </div>
+                        <p class="text-xs text-slate-500 mt-3">Tip: Type a skill and press Enter to add (Edit mode).</p>
+                    </div>
+                    <!-- Hidden field used for saving to backend -->
+                    <textarea id="prof-skills" readonly class="prof-input hidden"></textarea>
+                </section>
+
+                <section class="bg-white/70 border border-slate-100 p-8 rounded-[2rem] shadow-sm backdrop-blur-md">
+                    <h3 class="text-lg font-bold text-blue-600 mb-6 flex items-center gap-2"><i class="fa-solid fa-briefcase"></i> Projects / Experience</h3>
+                    <textarea id="prof-experience" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 h-32" placeholder="Describe your key projects, internships, or work experience..."></textarea>
+                </section>
+
+                <section class="bg-white/70 border border-slate-100 p-8 rounded-[2rem] shadow-sm backdrop-blur-md">
+                    <h3 class="text-lg font-bold text-blue-600 mb-6 flex items-center gap-2"><i class="fa-solid fa-heart"></i> Internship Preferences</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <input type="text" id="prof-pref-role" placeholder="Preferred Role (e.g. Data Analyst)" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        <input type="text" id="prof-pref-loc" placeholder="Preferred Location (e.g. Remote, Mumbai)" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                    </div>
+                </section>
+
+                <section class="bg-white/70 border border-slate-100 p-8 rounded-[2rem] shadow-sm backdrop-blur-md">
+                    <h3 class="text-lg font-bold text-blue-600 mb-6 flex items-center gap-2"><i class="fa-solid fa-link"></i> Links / Resume</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <input type="text" id="prof-linkedin" placeholder="LinkedIn URL" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        <input type="text" id="prof-github" placeholder="GitHub URL" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        <input type="text" id="prof-portfolio" placeholder="Portfolio URL" readonly class="prof-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        <div class="md:col-span-2">
+                            <div class="flex flex-col md:flex-row gap-3 items-stretch md:items-center">
+                                <input type="text" id="prof-resume-url" placeholder="Resume URL (or upload)" readonly class="prof-input flex-1 bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                                <label class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold cursor-pointer text-center">
+                                    <input id="resume-file" type="file" class="hidden" accept=".pdf,.doc,.docx" onchange="uploadResume(this.files[0])">
+                                    Upload
+                                </label>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-2">Accepted: PDF/DOC/DOCX up to 10MB.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <div id="profileSaveContainer" class="hidden flex flex-col md:flex-row gap-4 mt-6 pb-10">
+                    <button onclick="saveStudentProfile()" class="bg-blue-600 text-white px-10 py-3 rounded-xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition">Save Profile</button>
+                    <button onclick="toggleProfileEdit(false)" class="bg-slate-200 text-slate-700 px-10 py-3 rounded-xl font-bold hover:bg-slate-300 transition">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="company-profile-view" class="view-content p-6 md:p-10 max-w-6xl mx-auto w-full">
+            <div class="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-8">
+                <div>
+                    <h2 class="text-3xl font-extrabold text-slate-900">Company Profile</h2>
+                    <p class="text-slate-500 text-sm mt-1">Complete your profile and verify your company domain to post jobs.</p>
+                </div>
+                <div class="flex gap-3">
+                    <button id="companyEditBtn" onclick="toggleCompanyEdit()" class="bg-blue-600 text-white px-6 py-2 rounded-xl font-bold hover:bg-blue-700 transition">Edit</button>
+                    <button onclick="loadCompanyProfile()" class="bg-white border border-slate-200 text-slate-900 px-6 py-2 rounded-xl font-bold hover:border-blue-300 hover:text-blue-700 transition">Reload</button>
+                </div>
+            </div>
+
+            <div id="company-verify-banner" class="hidden mb-6 rounded-[1.75rem] border p-5 bg-white/70 backdrop-blur-md"></div>
+
+            <section class="bg-white/80 border border-slate-200 p-8 rounded-[2rem] shadow-sm space-y-8 backdrop-blur-md">
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-4">Company identity</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Legal / brand name</label>
+                            <input id="comp-name" readonly class="comp-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-100" placeholder="e.g. Acme Pvt Ltd">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Company website</label>
+                            <input id="comp-website" readonly class="comp-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-100" placeholder="https://yourcompany.com">
+                            <p class="text-xs text-slate-500 mt-1">Used to verify your work email domain matches your company.</p>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Head office location</label>
+                            <input id="comp-location" readonly class="comp-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-100" placeholder="City, Country">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Industry</label>
+                            <input id="comp-industry" readonly class="comp-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-100" placeholder="e.g. SaaS, FinTech">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Company size</label>
+                            <select id="comp-size" disabled class="comp-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-100">
+                                <option value="">Select</option>
+                                <option value="1-10">1–10</option>
+                                <option value="11-50">11–50</option>
+                                <option value="51-200">51–200</option>
+                                <option value="201-1000">201–1000</option>
+                                <option value="1000+">1000+</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">LinkedIn company page (optional)</label>
+                            <input id="comp-linkedin" readonly class="comp-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-100" placeholder="https://linkedin.com/company/...">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-4">Hiring contact</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Careers / HR email (optional)</label>
+                            <input id="comp-careers-email" readonly class="comp-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-100" placeholder="careers@yourcompany.com">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">About the company</label>
+                    <textarea id="comp-about" readonly class="comp-input w-full bg-slate-50 px-4 py-3 rounded-xl border-none outline-none focus:ring-2 focus:ring-blue-100 h-32" placeholder="What you build, culture, and who you hire (min ~40 characters)."></textarea>
+                </div>
+
+                <div id="companySaveContainer" class="hidden flex flex-col md:flex-row gap-4">
+                    <button onclick="saveCompanyProfile()" class="bg-blue-600 text-white px-10 py-3 rounded-xl font-bold hover:bg-blue-700 transition">Save</button>
+                    <button onclick="toggleCompanyEdit(false)" class="bg-slate-200 text-slate-700 px-10 py-3 rounded-xl font-bold hover:bg-slate-300 transition">Cancel</button>
+                </div>
+            </section>
+        </div>
+
+        <div id="post-job-view" class="view-content p-6 md:p-10 max-w-6xl mx-auto w-full">
+            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-3xl font-extrabold">Post a role</h2>
+                    <p class="text-slate-500 text-sm mt-1">Structured listing with stipend, schedule, and contact — only verified company accounts can publish.</p>
+                </div>
+            </div>
+
+            <div id="post-job-gate" class="hidden mb-6 rounded-[1.75rem] border p-5 bg-amber-50/90 border-amber-200 text-amber-950 text-sm"></div>
+
+            <div class="bg-white/80 border border-slate-200 p-8 rounded-[2rem] shadow-sm backdrop-blur-md space-y-8">
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-4">Role overview</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Job title</label>
+                            <input id="job-title" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="e.g. Software Engineering Intern">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Department / team</label>
+                            <input id="job-department" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="e.g. Platform, Data">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Role type</label>
+                            <select id="job-type" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                                <option value="internship">Internship</option>
+                                <option value="full_time">Full-time</option>
+                                <option value="part_time">Part-time</option>
+                                <option value="contract">Contract</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-4">Location &amp; schedule</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Work location</label>
+                            <input id="job-location" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="City or Remote">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Work mode</label>
+                            <select id="job-mode" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                                <option>Remote</option>
+                                <option>Hybrid</option>
+                                <option>Onsite</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Hours per week</label>
+                            <input id="job-hours" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="e.g. 40 or 20–25">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Expected start</label>
+                            <input id="job-start" type="date" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Duration</label>
+                            <input id="job-duration" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="e.g. 6 months">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Open positions</label>
+                            <input id="job-openings" type="number" min="1" max="50" value="1" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-4">Compensation &amp; perks</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Stipend / salary</label>
+                            <input id="job-stipend" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="e.g. ₹25,000 / month or Unpaid">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Application deadline</label>
+                            <input id="job-deadline" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="YYYY-MM-DD">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Perks &amp; benefits (optional)</label>
+                            <input id="job-perks" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="e.g. Laptop, meals, certification budget">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-4">Skills &amp; description</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Required skills</label>
+                            <input id="job-required" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="Comma-separated, e.g. Python, SQL, Git">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Preferred skills</label>
+                            <input id="job-preferred" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="Optional — nice to have">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Role description</label>
+                            <textarea id="job-desc" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 h-36" placeholder="Responsibilities, tools, and what success looks like."></textarea>
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Eligibility</label>
+                            <textarea id="job-elig" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100 h-24" placeholder="Education year, location, visa, etc."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-sm font-extrabold text-slate-900 uppercase tracking-widest mb-4">Application contact</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="md:col-span-2">
+                            <label class="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-2">Role contact email (optional)</label>
+                            <input id="job-contact-email" type="email" class="w-full bg-slate-50 px-4 py-3 rounded-xl outline-none focus:bg-white focus:ring-2 focus:ring-blue-100" placeholder="hiring@yourcompany.com — shown to applicants if provided">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-4 pt-2">
+                    <button id="post-job-submit" onclick="createJob()" class="bg-slate-900 text-white px-10 py-3 rounded-xl font-bold hover:bg-blue-600 transition">Publish listing</button>
+                    <button onclick="showView('internship')" class="bg-slate-200 text-slate-700 px-10 py-3 rounded-xl font-bold hover:bg-slate-300 transition">Back</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="company-apps-view" class="view-content p-6 md:p-10 max-w-6xl mx-auto w-full">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-3xl font-extrabold">Applications</h2>
+                <button class="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold" onclick="loadMyApplications()">Refresh</button>
+            </div>
+            <div id="apps-list" class="space-y-4"></div>
+        </div>
+
+        <div id="dashboard-view" class="view-content p-6 md:p-10 max-w-6xl mx-auto w-full">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+                <div>
+                    <h2 class="text-3xl font-extrabold">Dashboard</h2>
+                    <p class="text-slate-500 text-sm mt-1">Your activity, progress, and next steps.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8" id="dash-stats">
+                <div class="stat-card rounded-[1.75rem] p-6 shadow-sm">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Tests Given</p>
+                    <p class="text-3xl font-extrabold mt-2" id="stat-tests">—</p>
+                </div>
+                <div class="stat-card rounded-[1.75rem] p-6 shadow-sm">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Internships Applied</p>
+                    <p class="text-3xl font-extrabold mt-2" id="stat-applied">—</p>
+                </div>
+                <div class="stat-card rounded-[1.75rem] p-6 shadow-sm">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Courses Watched</p>
+                    <p class="text-3xl font-extrabold mt-2" id="stat-courses">—</p>
+                </div>
+                <div class="stat-card rounded-[1.75rem] p-6 shadow-sm">
+                    <p class="text-xs font-bold text-slate-500 uppercase tracking-widest">Skills Known</p>
+                    <p class="text-3xl font-extrabold mt-2" id="stat-skills">—</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="bg-white border border-slate-100 p-8 rounded-[2rem] shadow-sm">
+                    <h3 class="font-extrabold mb-4">My Applications</h3>
+                    <div id="student-apps" class="space-y-3 text-sm text-slate-600"></div>
+                </div>
+                <div class="bg-white border border-slate-100 p-8 rounded-[2rem] shadow-sm">
+                    <h3 class="font-extrabold mb-4">Next Steps</h3>
+                    <div class="space-y-3 text-sm text-slate-600">
+                        <p>1) Add skills in your profile for better matches.</p>
+                        <p>2) Take a mock test to benchmark your readiness.</p>
+                        <p>3) Use AI Match to find roles that fit your profile.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Auth Model -->
+    <div id="auth-modal" class="fixed inset-0 bg-slate-900/70 z-[60] hidden items-center justify-center backdrop-blur-md p-4 overflow-y-auto">
+        <div class="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl flex max-w-2xl w-full relative border border-slate-100">
+            <button onclick="closeAuthModal()" class="modal-close absolute top-6 right-6 text-slate-400 hover:text-slate-900 z-10 w-10 h-10 rounded-full flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+
+            <div class="w-full p-10 md:p-12">
+                <h2 class="text-3xl font-extrabold text-slate-900 mb-2" id="auth-title">Welcome</h2>
+                <p class="text-slate-500 mb-6 text-sm" id="auth-subtitle">Sign in or create an account.</p>
+
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <button class="p-4 rounded-2xl border border-slate-200 hover:border-blue-400 font-bold text-slate-900" onclick="setAuthRole('student')" id="role-student">Student</button>
+                    <button class="p-4 rounded-2xl border border-slate-200 hover:border-slate-900 font-bold text-slate-900" onclick="setAuthRole('company')" id="role-company">Company</button>
+                </div>
+
+                <div class="space-y-3">
+                    <input id="auth-email" type="email" placeholder="Email" class="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:border-blue-500">
+                    <input id="auth-password" type="password" placeholder="Password (min 6 chars)" class="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:border-blue-500">
+                    <button onclick="submitAuth()" class="w-full bg-blue-600 text-white py-4 rounded-2xl font-black hover:bg-blue-700 transition shadow-xl shadow-blue-100" id="auth-submit">Continue</button>
+                </div>
+
+                <div class="mt-4 text-sm text-slate-600">
+                    <button class="font-bold text-blue-600" onclick="toggleAuthMode()" id="auth-toggle">Need an account? Sign up</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skills Picker Model -->
+    <div id="skills-modal" class="fixed inset-0 bg-slate-900/70 z-[65] hidden items-center justify-center backdrop-blur-md p-4 overflow-y-auto">
+        <div class="bg-white rounded-[2.5rem] overflow-hidden shadow-2xl max-w-3xl w-full relative border border-slate-100">
+            <button onclick="closeSkillsPicker()" class="modal-close absolute top-6 right-6 text-slate-400 hover:text-slate-900 z-10 w-10 h-10 rounded-full flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+            <div class="p-8 md:p-10">
+                <h3 class="text-2xl font-extrabold text-slate-900">Select skills</h3>
+                <p class="text-slate-500 text-sm mt-1">Search and click to add/remove skills.</p>
+                <div class="mt-5">
+                    <input id="skills-modal-search" type="text" placeholder="Search skills..." class="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-slate-50 outline-none focus:border-blue-500">
+                </div>
+                <div id="skills-modal-list" class="mt-6 grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[320px] overflow-auto pr-1"></div>
+                <div class="mt-6 flex flex-col md:flex-row gap-3 justify-end">
+                    <button class="bg-slate-200 text-slate-800 px-8 py-3 rounded-2xl font-bold" onclick="closeSkillsPicker()">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+    <datalist id="mumbai-colleges">
+        <option value="IIT Bombay (Indian Institute of Technology Bombay)"></option>
+        <option value="University of Mumbai"></option>
+        <option value="VJTI Mumbai (Veermata Jijabai Technological Institute)"></option>
+        <option value="Sardar Patel Institute of Technology (SPIT), Andheri"></option>
+        <option value="KJ Somaiya College of Engineering, Vidyavihar"></option>
+        <option value="Thadomal Shahani Engineering College (TSEC), Bandra"></option>
+        <option value="Dwarkadas J. Sanghvi College of Engineering (DJSCE), Vile Parle"></option>
+        <option value="Mukesh Patel School of Technology Management & Engineering (NMIMS), Mumbai"></option>
+        <option value="St. Xavier’s College, Mumbai"></option>
+        <option value="Jai Hind College, Mumbai"></option>
+        <option value="KC College, Mumbai"></option>
+        <option value="HR College of Commerce & Economics, Mumbai"></option>
+        <option value="Ruia College, Matunga"></option>
+        <option value="SIES College of Arts, Science & Commerce, Sion"></option>
+        <option value="Wilson College, Mumbai"></option>
+        <option value="Datta Meghe College of Engineering"></option>
+    </datalist>
+</body>
+</html>
+
